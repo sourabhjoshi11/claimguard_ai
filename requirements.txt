@@ -1,0 +1,11 @@
+langgraph
+langchain
+langchain-groq
+groq
+urllib3
+datetime
+python-dotenv
+
+boto3
+
+Pillow
