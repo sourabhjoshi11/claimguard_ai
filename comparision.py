@@ -76,3 +76,6 @@ def comparison_node(state: ClaimState):
     except Exception as e:
         print(f"Groq Error: {e}")
         return {"status": f"Error in Groq: {str(e)}", "anamolies": []}
+
+
+

@@ -19,7 +19,7 @@ def lambda_func(event,context):
 
         test_input = {
             "property_id": "PROP_10",
-            "user_id": "USER_002",
+            "user_id": "USER",
             "check_in_url": "image copy.png",   
             "check_out_url":key,
             "anamolies": [],
