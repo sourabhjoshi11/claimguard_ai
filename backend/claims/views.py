@@ -32,3 +32,12 @@ def upload_claim(request):
         "image_url": image_url,
         "claim_id": claim.id
     })
+
+
+
+from django.http import HttpResponse
+
+
+def home(request):
+    return HttpResponse("ClaimGuard")
+

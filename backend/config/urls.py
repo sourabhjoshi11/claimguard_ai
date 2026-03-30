@@ -18,9 +18,11 @@ from django.contrib import admin
 from users import urls
 from django.urls import path, include
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from claims import urls
+from claims import urls ,views
 
 urlpatterns = [
+
+    path('',views.home),
     path('api/users/', include('users.urls')),
 
     path('api/login/', TokenObtainPairView.as_view()),
