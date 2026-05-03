@@ -1,34 +1,44 @@
 import os
 import json
-import base64
-import io
-from groq import Groq 
-from PIL import Image
 from state import ClaimState
 from dotenv import load_dotenv
-import boto3
+from backend.claims.services.media_service import media_to_base64_preview
+
+try:
+    from groq import Groq
+except ImportError:
+    Groq = None
+
 load_dotenv()
 api=os.environ.get("GROQ")
-client = Groq(api_key=api)
+client = Groq(api_key=api) if Groq and api else None
 
 def comparison_node(state: ClaimState):
     print("comparision")
-    
-    def resized(url):
-        
-        s3 = boto3.client('s3',region_name="ap-south-1")
-        response = s3.get_object(Bucket="claimguard", Key=url)
-        img = Image.open(io.BytesIO(response['Body'].read()))
-        img.thumbnail((1024, 1024)) 
-        buffer = io.BytesIO()
-        img.save(buffer, format="JPEG")
-        temp=base64.b64encode(buffer.getvalue())
-        return temp.decode('utf-8')
-        
 
     try:
-        check_in =resized(state['check_in_url'])
-        check_out  = resized(state['check_out_url'])
+        if not state.get('check_in_url'):
+            return {"anamolies": [], "status": "No reference image provided"}
+
+        if Groq is None:
+            return {"anamolies": [], "status": "Groq SDK missing"}
+
+        if not client:
+            return {"anamolies": [], "status": "Groq API key missing"}
+
+        media_type = state.get("media_type", "image")
+        check_in = media_to_base64_preview(state['check_in_url'], media_type)
+        check_out = media_to_base64_preview(state['check_out_url'], media_type)
+        comparison_prompt = (
+            "Compare these before and after images. Return ONLY a JSON object in the form "
+            "{\"damages\": [{\"item\": \"string\", \"issue\": \"string\", \"severity\": \"Low/Medium/High\"}]}"
+        )
+        if media_type == "video":
+            comparison_prompt = (
+                "Each uploaded image is a vertical strip of key frames from a before video and an after video. "
+                "Compare the scenes and return ONLY a JSON object in the form "
+                "{\"damages\": [{\"item\": \"string\", \"issue\": \"string\", \"severity\": \"Low/Medium/High\"}]}"
+            )
 
         
         completion = client.chat.completions.create(
@@ -39,7 +49,7 @@ def comparison_node(state: ClaimState):
                     "content": [
                         {
                             "type": "text", 
-                            "text": "Compare these 'Before' and 'After' images. Return ONLY a JSON list of new damages: [{'item': 'string', 'issue': 'string', 'severity': 'Low/Medium/High'}]"
+                            "text": comparison_prompt
                         },
                         {
                             "type": "image_url",
@@ -76,6 +86,3 @@ def comparison_node(state: ClaimState):
     except Exception as e:
         print(f"Groq Error: {e}")
         return {"status": f"Error in Groq: {str(e)}", "anamolies": []}
-
-
-

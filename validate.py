@@ -1,22 +1,25 @@
-import boto3
+import os
+
 from state import ClaimState
-client=boto3.client('rekognition',region_name='ap-south-1')
+from backend.claims.services.media_service import is_supported_media
 
 def input_validation_node(state:ClaimState):
-    
-    keys = [state['check_in_url'], state['check_out_url']]
+    image_paths = [state.get('check_out_url'), state.get('check_in_url')]
+    media_type = state.get("media_type", "image")
 
-    for key in keys:
-            response = client.detect_labels(
-                Image={'S3Object': {'Bucket': 'claimguard', 'Name': key}},
-                MaxLabels=5,
-                MinConfidence=75
-            )
-    
-            if len(response['Labels'])>0:
-                print(f"validation successful : Found{response['Labels'][0]['Name']}")
-                return {"is_image_clear":True,"status":"Valid image Detected"}
-            
-            else:
-                print("Validation Fail")
-                return {"is_image_clear":False,"status":"invalid image"}
+    for path in image_paths:
+        if not path:
+            continue
+        try:
+            if not is_supported_media(path, media_type):
+                raise ValueError("unsupported media type")
+            if not os.path.exists(path):
+                raise FileNotFoundError(path)
+            if os.path.getsize(path) == 0:
+                raise ValueError("empty media file")
+            print(f"validation successful for: {path}")
+        except Exception:
+            print("Validation Fail")
+            return {"is_image_clear":False,"status":"invalid image"}
+
+    return {"is_image_clear":True,"status":"Valid image Detected"}

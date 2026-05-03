@@ -1,52 +1,48 @@
-from langgraph.graph import StateGraph,END
-from typing import Annotated ,List,TypedDict
-import operator
+from langgraph.graph import StateGraph, END
+
 from validate import input_validation_node
 from valuation import valuation_node
-import json
 from comparision import comparison_node
+from state import ClaimState
 
 
-class DamageReport(TypedDict):
-    item:str
-    issue:str
-    severity:str
-    estimated_cost:float
-
-class ClaimState(TypedDict):
-    property_id:str
-    user_id:str
-    check_in_url:str
-    check_out_url:str
-    is_image_clear:bool
-    anamolies:Annotated[List[DamageReport],operator.add]
-    total_claim_value:float
-    status:str
+def after_validation(state: ClaimState):
+    return "continue" if state.get("is_image_clear") else "stop"
 
 
+def after_comparison(state: ClaimState):
+    return "estimate" if state.get("status") == "Groq Comparison Done" else "stop"
 
-workflow=StateGraph(ClaimState)
 
-workflow.add_node("validate_image",input_validation_node)
-workflow.add_node("compare_asset",comparison_node)
-workflow.add_node("estimate_cost",valuation_node)
+workflow = StateGraph(ClaimState)
 
+workflow.add_node("validate_image", input_validation_node)
+workflow.add_node("compare_asset", comparison_node)
+workflow.add_node("estimate_cost", valuation_node)
 
 workflow.set_entry_point("validate_image")
 
-workflow.add_conditional_edges("validate_image",lambda state :"continue" if state["is_image_clear"] else "stop",{
-    "continue":"compare_asset",
-    "stop":END
-})
+workflow.add_conditional_edges(
+    "validate_image",
+    after_validation,
+    {
+        "continue": "compare_asset",
+        "stop": END,
+    },
+)
 
-workflow.add_edge("compare_asset","estimate_cost")
+workflow.add_conditional_edges(
+    "compare_asset",
+    after_comparison,
+    {
+        "estimate": "estimate_cost",
+        "stop": END,
+    },
+)
 
-workflow.add_edge("estimate_cost",END)
+workflow.add_edge("estimate_cost", END)
 
-
-
-app=workflow.compile()
-
+app = workflow.compile()
 
 
 
